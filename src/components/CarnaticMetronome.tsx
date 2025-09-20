@@ -4,13 +4,16 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw } from 'lucide-react';
-import { TALAMS, DEFAULT_TALAM, type Talam } from '@/data/talams';
+import { TALAMS, DEFAULT_TALAM, JAATHIS, TRADITIONAL_TALAMS, getCommonTalams, getTraditionalTalams, type Talam } from '@/data/talams';
 
 interface MetronomeState {
   isPlaying: boolean;
   currentBeat: number;
   tempo: number;
   selectedTalam: Talam;
+  selectedJaathi: string;
+  selectedTraditionalTalam: string;
+  selectionMode: 'jaathi-talam' | 'traditional' | 'common';
 }
 
 export const CarnaticMetronome = () => {
@@ -18,7 +21,10 @@ export const CarnaticMetronome = () => {
     isPlaying: false,
     currentBeat: 0,
     tempo: 80,
-    selectedTalam: DEFAULT_TALAM
+    selectedTalam: DEFAULT_TALAM,
+    selectedJaathi: 'Chatusra',
+    selectedTraditionalTalam: 'Dhruva',
+    selectionMode: 'common'
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -44,7 +50,7 @@ export const CarnaticMetronome = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioContextRef.current.destination);
 
-    // Sam (first beat) has higher pitch and longer duration
+    // Samam (first beat) has higher pitch and longer duration
     oscillator.frequency.setValueAtTime(
       isSam ? 800 : 400, 
       audioContextRef.current.currentTime
@@ -69,11 +75,11 @@ export const CarnaticMetronome = () => {
       intervalRef.current = setInterval(() => {
         setState(prev => {
           const nextBeat = (prev.currentBeat + 1) % prev.selectedTalam.aksharas;
-          const isSam = nextBeat === 0;
+          const isSamam = nextBeat === 0;
           const isEmphasis = prev.selectedTalam.emphasis.includes(nextBeat);
           
           // Play sound
-          playBeat(isSam || isEmphasis);
+          playBeat(isSamam || isEmphasis);
           
           return {
             ...prev,
@@ -107,11 +113,40 @@ export const CarnaticMetronome = () => {
     }));
   };
 
-  const handleTalamChange = (talamName: string) => {
-    const newTalam = TALAMS.find(t => t.name === talamName) || DEFAULT_TALAM;
+  const handleSelectionModeChange = (mode: 'jaathi-talam' | 'traditional' | 'common') => {
+    setState(prev => ({
+      ...prev,
+      selectionMode: mode,
+      currentBeat: 0,
+      isPlaying: false
+    }));
+  };
+
+  const handleCommonTalamChange = (talamName: string) => {
+    const newTalam = getCommonTalams().find(t => t.name === talamName) || DEFAULT_TALAM;
     setState(prev => ({
       ...prev,
       selectedTalam: newTalam,
+      currentBeat: 0,
+      isPlaying: false
+    }));
+  };
+
+  const handleJaathiChange = (jaathi: string) => {
+    setState(prev => ({
+      ...prev,
+      selectedJaathi: jaathi,
+      currentBeat: 0,
+      isPlaying: false
+    }));
+  };
+
+  const handleTraditionalTalamChange = (talamName: string) => {
+    const newTalam = getTraditionalTalams().find(t => t.name === talamName) || getTraditionalTalams()[0];
+    setState(prev => ({
+      ...prev,
+      selectedTalam: newTalam,
+      selectedTraditionalTalam: talamName,
       currentBeat: 0,
       isPlaying: false
     }));
@@ -123,13 +158,13 @@ export const CarnaticMetronome = () => {
 
   const getBeatStyle = (beatIndex: number) => {
     const isActive = beatIndex === state.currentBeat && state.isPlaying;
-    const isSam = beatIndex === 0;
+    const isSamam = beatIndex === 0;
     const isEmphasis = state.selectedTalam.emphasis.includes(beatIndex);
     
     let className = "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all duration-150";
     
     if (isActive) {
-      if (isSam) {
+      if (isSamam) {
         className += " bg-accent text-accent-foreground border-accent shadow-warm scale-110";
       } else if (isEmphasis) {
         className += " bg-primary text-primary-foreground border-primary scale-105";
@@ -137,7 +172,7 @@ export const CarnaticMetronome = () => {
         className += " bg-secondary text-secondary-foreground border-secondary scale-105";
       }
     } else {
-      if (isSam) {
+      if (isSamam) {
         className += " border-accent/40 text-accent";
       } else if (isEmphasis) {
         className += " border-primary/40 text-primary";
@@ -164,25 +199,113 @@ export const CarnaticMetronome = () => {
       {/* Main Controls */}
       <Card className="p-8 shadow-soft">
         <div className="space-y-8">
-          {/* Talam Selection */}
+          {/* Selection Mode */}
           <div className="space-y-4">
-            <label className="text-lg font-semibold">Select Talam</label>
-            <Select value={state.selectedTalam.name} onValueChange={handleTalamChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TALAMS.map((talam) => (
-                  <SelectItem key={talam.name} value={talam.name}>
-                    {talam.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">
-              {state.selectedTalam.description}
-            </p>
+            <label className="text-lg font-semibold">Select Mode</label>
+            <div className="flex gap-2">
+              <Button
+                variant={state.selectionMode === 'common' ? 'default' : 'outline'}
+                onClick={() => handleSelectionModeChange('common')}
+                className="flex-1"
+              >
+                Common Talams
+              </Button>
+              <Button
+                variant={state.selectionMode === 'jaathi-talam' ? 'default' : 'outline'}
+                onClick={() => handleSelectionModeChange('jaathi-talam')}
+                className="flex-1"
+              >
+                Jaathi + Talam
+              </Button>
+              <Button
+                variant={state.selectionMode === 'traditional' ? 'default' : 'outline'}
+                onClick={() => handleSelectionModeChange('traditional')}
+                className="flex-1"
+              >
+                Traditional
+              </Button>
+            </div>
           </div>
+
+          {/* Common Talams Selection */}
+          {state.selectionMode === 'common' && (
+            <div className="space-y-4">
+              <label className="text-lg font-semibold">Common Talams</label>
+              <Select value={state.selectedTalam.name} onValueChange={handleCommonTalamChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getCommonTalams().map((talam) => (
+                    <SelectItem key={talam.name} value={talam.name}>
+                      {talam.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                {state.selectedTalam.description}
+              </p>
+            </div>
+          )}
+
+          {/* Jaathi + Talam Selection */}
+          {state.selectionMode === 'jaathi-talam' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <label className="text-lg font-semibold">Jaathi</label>
+                <Select value={state.selectedJaathi} onValueChange={handleJaathiChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JAATHIS.map((jaathi) => (
+                      <SelectItem key={jaathi.name} value={jaathi.name}>
+                        {jaathi.name} ({jaathi.beats} beats)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-4">
+                <label className="text-lg font-semibold">Talam</label>
+                <Select value={state.selectedTraditionalTalam} onValueChange={handleTraditionalTalamChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRADITIONAL_TALAMS.map((talam) => (
+                      <SelectItem key={talam} value={talam}>
+                        {talam}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Traditional Talam Selection */}
+          {state.selectionMode === 'traditional' && (
+            <div className="space-y-4">
+              <label className="text-lg font-semibold">Traditional Talams</label>
+              <Select value={state.selectedTalam.name} onValueChange={handleTraditionalTalamChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getTraditionalTalams().map((talam) => (
+                    <SelectItem key={talam.name} value={talam.name}>
+                      {talam.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                {state.selectedTalam.description}
+              </p>
+            </div>
+          )}
 
           {/* Beat Visualization */}
           <div className="space-y-4">
@@ -202,7 +325,7 @@ export const CarnaticMetronome = () => {
             <div className="text-center text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-2">
                 <div className="w-3 h-3 bg-accent rounded-full"></div>
-                Sam (First Beat)
+                Samam (First Beat)
               </span>
               <span className="inline-flex items-center gap-2 ml-4">
                 <div className="w-3 h-3 bg-primary rounded-full"></div>
