@@ -68,8 +68,8 @@ export const TALAMS: Talam[] = [
     name: "Misra Chapu",
     aksharas: 7,
     pattern: ["1", "2", "3", "4", "5", "6", "7"],
-    emphasis: [0, 1, 3, 5],
-    silentBeats: [2, 4, 6],
+    emphasis: [0, 1, 3],
+    silentBeats: [2],
     description: "7-beat irregular talam, very popular in film music",
     structure: [
       { component: "Laghu", beats: 3, symbol: "|" },
@@ -81,8 +81,8 @@ export const TALAMS: Talam[] = [
     name: "Khanda Chapu",
     aksharas: 5,
     pattern: ["1", "2", "3", "4", "5"],
-    emphasis: [0, 2, 3],
-    silentBeats: [1, 4],
+    emphasis: [0, 2],
+    silentBeats: [1],
     description: "5-beat irregular talam",
     structure: [
       { component: "Laghu", beats: 2, symbol: "|" },
@@ -95,7 +95,7 @@ export const TALAMS: Talam[] = [
     aksharas: 9,
     pattern: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
     emphasis: [0, 2, 4, 6, 7],
-    silentBeats: [1, 3, 5, 8],
+    silentBeats: [1, 8],
     description: "9-beat irregular talam",
     structure: [
       { component: "Laghu", beats: 5, symbol: "|" },

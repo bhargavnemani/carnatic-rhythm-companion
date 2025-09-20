@@ -167,9 +167,9 @@ export const CarnaticMetronome = () => {
     
     let className = "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all duration-150";
     
-    // Silent beats are always grayed out
+    // Silent beats are always grayed out with darker border
     if (isSilent) {
-      className += " bg-muted/30 text-muted-foreground/40 border-muted/30";
+      className += " bg-muted/30 text-muted-foreground/40 border-muted border-2";
       if (isActive) {
         className += " scale-105";
       }
