@@ -13,7 +13,7 @@ interface MetronomeState {
   selectedTalam: Talam;
   selectedJaathi: string;
   selectedTraditionalTalam: string;
-  selectionMode: 'jaathi-talam' | 'traditional' | 'common';
+  selectionMode: 'jaathi-talam' | 'common';
 }
 
 export const CarnaticMetronome = () => {
@@ -77,9 +77,12 @@ export const CarnaticMetronome = () => {
           const nextBeat = (prev.currentBeat + 1) % prev.selectedTalam.aksharas;
           const isSamam = nextBeat === 0;
           const isEmphasis = prev.selectedTalam.emphasis.includes(nextBeat);
+          const isSilent = prev.selectedTalam.silentBeats?.includes(nextBeat) || false;
           
-          // Play sound
-          playBeat(isSamam || isEmphasis);
+          // Play sound only if not silent
+          if (!isSilent) {
+            playBeat(isSamam || isEmphasis);
+          }
           
           return {
             ...prev,
@@ -113,7 +116,7 @@ export const CarnaticMetronome = () => {
     }));
   };
 
-  const handleSelectionModeChange = (mode: 'jaathi-talam' | 'traditional' | 'common') => {
+  const handleSelectionModeChange = (mode: 'jaathi-talam' | 'common') => {
     setState(prev => ({
       ...prev,
       selectionMode: mode,
@@ -160,10 +163,17 @@ export const CarnaticMetronome = () => {
     const isActive = beatIndex === state.currentBeat && state.isPlaying;
     const isSamam = beatIndex === 0;
     const isEmphasis = state.selectedTalam.emphasis.includes(beatIndex);
+    const isSilent = state.selectedTalam.silentBeats?.includes(beatIndex) || false;
     
     let className = "w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all duration-150";
     
-    if (isActive) {
+    // Silent beats are always grayed out
+    if (isSilent) {
+      className += " bg-muted/30 text-muted-foreground/40 border-muted/30";
+      if (isActive) {
+        className += " scale-105";
+      }
+    } else if (isActive) {
       if (isSamam) {
         className += " bg-accent text-accent-foreground border-accent shadow-warm scale-110";
       } else if (isEmphasis) {
@@ -215,14 +225,7 @@ export const CarnaticMetronome = () => {
                 onClick={() => handleSelectionModeChange('jaathi-talam')}
                 className="flex-1"
               >
-                Jaathi + Talam
-              </Button>
-              <Button
-                variant={state.selectionMode === 'traditional' ? 'default' : 'outline'}
-                onClick={() => handleSelectionModeChange('traditional')}
-                className="flex-1"
-              >
-                Traditional
+                Custom
               </Button>
             </div>
           </div>
@@ -249,7 +252,7 @@ export const CarnaticMetronome = () => {
             </div>
           )}
 
-          {/* Jaathi + Talam Selection */}
+          {/* Custom Selection */}
           {state.selectionMode === 'jaathi-talam' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-4">
@@ -285,27 +288,6 @@ export const CarnaticMetronome = () => {
             </div>
           )}
 
-          {/* Traditional Talam Selection */}
-          {state.selectionMode === 'traditional' && (
-            <div className="space-y-4">
-              <label className="text-lg font-semibold">Traditional Talams</label>
-              <Select value={state.selectedTalam.name} onValueChange={handleTraditionalTalamChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {getTraditionalTalams().map((talam) => (
-                    <SelectItem key={talam.name} value={talam.name}>
-                      {talam.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                {state.selectedTalam.description}
-              </p>
-            </div>
-          )}
 
           {/* Beat Visualization */}
           <div className="space-y-4">

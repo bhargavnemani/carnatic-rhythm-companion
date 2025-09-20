@@ -5,6 +5,7 @@ export interface Talam {
   aksharas: number; // Total number of beats
   pattern: string[]; // Beat pattern (laghu, dhrutham, anudhrutham)
   emphasis: number[]; // Which beats to emphasize (0-indexed)
+  silentBeats?: number[]; // Which beats are silent (0-indexed)
   description: string;
   structure: {
     component: string;
@@ -54,22 +55,21 @@ export const TALAMS: Talam[] = [
   },
   {
     name: "Simplified Rupaka Talam",
-    aksharas: 6,
-    pattern: ["|", "1", "1", "|", "1", "2"],
-    emphasis: [0, 3],
-    description: "Popular 6-beat talam (Chatusra Jati Rupaka)",
+    aksharas: 3,
+    pattern: ["1", "2", "3"],
+    emphasis: [0],
+    description: "Simple 3-beat talam",
     structure: [
-      { component: "Dhrutam", beats: 2, symbol: "O" },
-      { component: "Laghu", beats: 4, symbol: "|" }
+      { component: "Laghu", beats: 3, symbol: "|" }
     ],
-    category: 'common',
-    jaathi: 'Chatusra'
+    category: 'common'
   },
   {
     name: "Misra Chapu",
     aksharas: 7,
-    pattern: ["1", "2", "3", "|", "1", "2", "3"],
-    emphasis: [0, 3],
+    pattern: ["1", "2", "3", "4", "5", "6", "7"],
+    emphasis: [0, 1, 3, 5],
+    silentBeats: [2, 4, 6],
     description: "7-beat irregular talam, very popular in film music",
     structure: [
       { component: "Laghu", beats: 3, symbol: "|" },
@@ -80,8 +80,9 @@ export const TALAMS: Talam[] = [
   {
     name: "Khanda Chapu",
     aksharas: 5,
-    pattern: ["1", "2", "|", "1", "2"],
-    emphasis: [0, 2],
+    pattern: ["1", "2", "3", "4", "5"],
+    emphasis: [0, 2, 3],
+    silentBeats: [1, 4],
     description: "5-beat irregular talam",
     structure: [
       { component: "Laghu", beats: 2, symbol: "|" },
@@ -92,8 +93,9 @@ export const TALAMS: Talam[] = [
   {
     name: "Sankeerna Chapu",
     aksharas: 9,
-    pattern: ["1", "2", "3", "4", "5", "|", "1", "2", "3"],
-    emphasis: [0, 5],
+    pattern: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    emphasis: [0, 2, 4, 6, 7],
+    silentBeats: [1, 3, 5, 8],
     description: "9-beat irregular talam",
     structure: [
       { component: "Laghu", beats: 5, symbol: "|" },
