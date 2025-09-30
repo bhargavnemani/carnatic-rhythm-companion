@@ -8,46 +8,44 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Warm, earthy palette inspired by traditional instruments */
-    --background: 45 15% 97%;
-    --foreground: 25 25% 15%;
+    --background: 252 251 245;
+    --foreground: 51 51 51;
 
-    --card: 45 20% 98%;
-    --card-foreground: 25 25% 15%;
+    --card: 255 255 255;
+    --card-foreground: 51 51 51;
 
-    --popover: 45 20% 98%;
-    --popover-foreground: 25 25% 15%;
+    --popover: 255 255 255;
+    --popover-foreground: 51 51 51;
 
-    /* Saffron-inspired primary colors */
-    --primary: 35 85% 55%;
-    --primary-foreground: 45 20% 98%;
-    --primary-glow: 35 90% 65%;
+    --primary: 184 59 94;
+    --primary-foreground: 255 255 255;
+    --primary-glow: 244 114 182;
 
-    /* Bronze/copper secondary tones */
-    --secondary: 25 40% 75%;
-    --secondary-foreground: 25 25% 15%;
+    --secondary: 245 245 244;
+    --secondary-foreground: 68 64 60;
 
-    --muted: 35 20% 90%;
-    --muted-foreground: 25 15% 45%;
+    --muted: 245 245 244;
+    --muted-foreground: 120 113 108;
 
-    /* Gold accent for sam (first beat) */
-    --accent: 45 95% 50%;
-    --accent-foreground: 25 25% 15%;
+    --accent: 217 70 239;
+    --accent-foreground: 255 255 255;
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 45 20% 98%;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
 
-    --border: 35 25% 85%;
-    --input: 35 25% 85%;
-    --ring: 35 85% 55%;
+    --border: 229 231 235;
+    --input: 255 255 255;
+    --ring: 184 59 94;
 
-    /* Custom design tokens */
-    --gradient-warm: linear-gradient(135deg, hsl(35 85% 55%), hsl(45 80% 60%));
-    --gradient-subtle: linear-gradient(180deg, hsl(45 15% 97%), hsl(40 20% 95%));
-    --shadow-warm: 0 8px 25px -5px hsl(35 85% 55% / 0.25);
-    --shadow-soft: 0 4px 15px -3px hsl(25 25% 15% / 0.1);
-    
-    --radius: 0.75rem;
+    --radius: 12px;
+
+    /* Professional gradients inspired by traditional Indian instruments */
+    --gradient-warm: linear-gradient(135deg, hsl(334, 60%, 48%) 0%, hsl(300, 73%, 60%) 100%);
+    --gradient-subtle: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(48, 36%, 96%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(334, 60%, 48%) 0%, hsl(217, 91%, 60%) 100%);
+    --shadow-warm: 0 20px 40px -12px hsl(334, 60%, 48%, 0.25);
+    --shadow-soft: 0 8px 32px -8px hsl(0, 0%, 0%, 0.08);
+    --shadow-glow: 0 0 40px hsl(334, 60%, 48%, 0.15);
 
     --sidebar-background: 0 0% 98%;
 
@@ -67,33 +65,34 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 17 24 39;
+    --foreground: 241 245 249;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 30 41 59;
+    --card-foreground: 241 245 249;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 30 41 59;
+    --popover-foreground: 241 245 249;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 244 114 182;
+    --primary-foreground: 17 24 39;
+    --primary-glow: 196 181 253;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 51 65 85;
+    --secondary-foreground: 241 245 249;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 51 65 85;
+    --muted-foreground: 148 163 184;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 196 181 253;
+    --accent-foreground: 17 24 39;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 239 68 68;
+    --destructive-foreground: 241 245 249;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 51 65 85;
+    --input: 30 41 59;
+    --ring: 244 114 182;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

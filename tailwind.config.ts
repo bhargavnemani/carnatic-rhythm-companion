@@ -62,10 +62,16 @@ export default {
       backgroundImage: {
         'gradient-warm': 'var(--gradient-warm)',
         'gradient-subtle': 'var(--gradient-subtle)',
+        'gradient-accent': 'var(--gradient-accent)',
       },
       boxShadow: {
         'warm': 'var(--shadow-warm)',
         'soft': 'var(--shadow-soft)',
+        'glow': 'var(--shadow-glow)',
+      },
+      fontFamily: {
+        'display': ['Inter', 'system-ui', 'sans-serif'],
+        'body': ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
