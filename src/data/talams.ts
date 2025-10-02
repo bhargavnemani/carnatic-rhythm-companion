@@ -44,7 +44,7 @@ export const TALAMS: Talam[] = [
     aksharas: 8,
     pattern: ["1", "2", "3", "4", "|", "1", "|", "1"],
     emphasis: [0, 4, 6],
-    description: "Most common talam in Carnatic music (Chatusra Jati Triputa)",
+    description: "Chatusra Jati Triputa - 8-beat talam",
     structure: [
       { component: "Laghu", beats: 4, symbol: "|" },
       { component: "Dhrutam", beats: 2, symbol: "O" },
