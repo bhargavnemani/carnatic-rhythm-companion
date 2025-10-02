@@ -201,3 +201,55 @@ export const DEFAULT_TALAM = TALAMS[0]; // Adi Talam as default
 
 export const getCommonTalams = () => TALAMS.filter(t => t.category === 'common');
 export const getTraditionalTalams = () => TALAMS.filter(t => t.category === 'traditional');
+
+// Function to create custom talam based on jaathi and traditional talam
+export const createCustomTalam = (jaathi: string, traditionalTalam: string): Talam => {
+  const jaathiInfo = JAATHIS.find(j => j.name === jaathi);
+  const baseTalam = getTraditionalTalams().find(t => t.name === traditionalTalam);
+  
+  if (!jaathiInfo || !baseTalam) {
+    return baseTalam || getTraditionalTalams()[0];
+  }
+
+  // Create new structure with jaathi beats for laghu components
+  const newStructure = baseTalam.structure.map(component => ({
+    ...component,
+    beats: component.component === 'Laghu' ? jaathiInfo.beats : component.beats
+  }));
+
+  // Calculate total aksharas
+  const totalAksharas = newStructure.reduce((sum, comp) => sum + comp.beats, 0);
+
+  // Generate pattern and emphasis based on structure
+  const pattern: string[] = [];
+  const emphasis: number[] = [0]; // Always emphasize samam
+  let beatIndex = 0;
+
+  newStructure.forEach((component, structIndex) => {
+    if (structIndex > 0) {
+      emphasis.push(beatIndex); // Emphasize start of each component after first
+    }
+    
+    for (let i = 0; i < component.beats; i++) {
+      if (component.component === 'Laghu') {
+        pattern.push((i + 1).toString());
+      } else if (component.component === 'Dhrutam') {
+        pattern.push(i === 0 ? "|" : (i + 1).toString());
+      } else if (component.component === 'Anudhrutam') {
+        pattern.push("|");
+      }
+      beatIndex++;
+    }
+  });
+
+  return {
+    name: `${jaathi} ${traditionalTalam}`,
+    aksharas: totalAksharas,
+    pattern,
+    emphasis,
+    description: `${jaathi} Jaathi ${traditionalTalam} Talam`,
+    structure: newStructure,
+    category: 'traditional',
+    jaathi: jaathi
+  };
+};

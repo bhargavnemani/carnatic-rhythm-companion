@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw } from 'lucide-react';
-import { TALAMS, DEFAULT_TALAM, JAATHIS, TRADITIONAL_TALAMS, getCommonTalams, getTraditionalTalams, type Talam } from '@/data/talams';
+import { TALAMS, DEFAULT_TALAM, JAATHIS, TRADITIONAL_TALAMS, getCommonTalams, getTraditionalTalams, createCustomTalam, type Talam } from '@/data/talams';
 
 interface MetronomeState {
   isPlaying: boolean;
@@ -136,19 +136,21 @@ export const CarnaticMetronome = () => {
   };
 
   const handleJaathiChange = (jaathi: string) => {
+    const customTalam = createCustomTalam(jaathi, state.selectedTraditionalTalam);
     setState(prev => ({
       ...prev,
       selectedJaathi: jaathi,
+      selectedTalam: customTalam,
       currentBeat: 0,
       isPlaying: false
     }));
   };
 
   const handleTraditionalTalamChange = (talamName: string) => {
-    const newTalam = getTraditionalTalams().find(t => t.name === talamName) || getTraditionalTalams()[0];
+    const customTalam = createCustomTalam(state.selectedJaathi, talamName);
     setState(prev => ({
       ...prev,
-      selectedTalam: newTalam,
+      selectedTalam: customTalam,
       selectedTraditionalTalam: talamName,
       currentBeat: 0,
       isPlaying: false
@@ -287,7 +289,6 @@ export const CarnaticMetronome = () => {
               </div>
             </div>
           )}
-
 
           {/* Beat Visualization */}
           <div className="space-y-4">
