@@ -199,14 +199,6 @@ export const CarnaticMetronome = () => {
   return (
     <div className="w-full max-w-4xl mx-auto p-6 space-y-8">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-warm bg-clip-text text-transparent">
-          Carnatic Metronome
-        </h1>
-        <p className="text-muted-foreground">
-          Traditional Indian Classical Music Rhythm Practice
-        </p>
-      </div>
 
       {/* Main Controls */}
       <Card className="p-8 shadow-soft">
