@@ -14,7 +14,33 @@ interface MetronomeState {
   selectedJaathi: string;
   selectedTraditionalTalam: string;
   selectionMode: 'jaathi-talam' | 'common';
+  selectedNadai: string;
+  shrutiPlaying: boolean;
+  shrutiPitch: string;
 }
+
+const NADAIS = [
+  { name: "Tisra", subdivisions: 3 },
+  { name: "Chatusra", subdivisions: 4 },
+  { name: "Khanda", subdivisions: 5 },
+  { name: "Misra", subdivisions: 7 },
+  { name: "Sankeerna", subdivisions: 9 }
+];
+
+const SHRUTI_NOTES = [
+  { name: "C", frequency: 261.63 },
+  { name: "C#", frequency: 277.18 },
+  { name: "D", frequency: 293.66 },
+  { name: "D#", frequency: 311.13 },
+  { name: "E", frequency: 329.63 },
+  { name: "F", frequency: 349.23 },
+  { name: "F#", frequency: 369.99 },
+  { name: "G", frequency: 392.00 },
+  { name: "G#", frequency: 415.30 },
+  { name: "A", frequency: 440.00 },
+  { name: "A#", frequency: 466.16 },
+  { name: "B", frequency: 493.88 }
+];
 
 export const CarnaticMetronome = () => {
   const [state, setState] = useState<MetronomeState>({
@@ -24,16 +50,24 @@ export const CarnaticMetronome = () => {
     selectedTalam: DEFAULT_TALAM,
     selectedJaathi: 'Chatusra',
     selectedTraditionalTalam: 'Dhruva',
-    selectionMode: 'common'
+    selectionMode: 'common',
+    selectedNadai: 'Chatusra',
+    shrutiPlaying: false,
+    shrutiPitch: 'C'
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const shrutiOscillatorRef = useRef<OscillatorNode | null>(null);
+  const shrutiGainRef = useRef<GainNode | null>(null);
 
   // Initialize audio context
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     return () => {
+      if (shrutiOscillatorRef.current) {
+        shrutiOscillatorRef.current.stop();
+      }
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
@@ -161,6 +195,74 @@ export const CarnaticMetronome = () => {
     setState(prev => ({ ...prev, tempo: value[0] }));
   };
 
+  const handleNadaiChange = (nadai: string) => {
+    setState(prev => ({
+      ...prev,
+      selectedNadai: nadai
+    }));
+  };
+
+  const toggleShruti = () => {
+    if (!audioContextRef.current) return;
+
+    if (state.shrutiPlaying) {
+      // Stop shruti
+      if (shrutiOscillatorRef.current) {
+        shrutiGainRef.current?.gain.exponentialRampToValueAtTime(
+          0.01,
+          audioContextRef.current.currentTime + 0.5
+        );
+        setTimeout(() => {
+          shrutiOscillatorRef.current?.stop();
+          shrutiOscillatorRef.current = null;
+        }, 500);
+      }
+      setState(prev => ({ ...prev, shrutiPlaying: false }));
+    } else {
+      // Start shruti
+      const selectedNote = SHRUTI_NOTES.find(n => n.name === state.shrutiPitch);
+      if (!selectedNote) return;
+
+      const oscillator = audioContextRef.current.createOscillator();
+      const gainNode = audioContextRef.current.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(selectedNote.frequency, audioContextRef.current.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.01, audioContextRef.current.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.15, audioContextRef.current.currentTime + 0.5);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContextRef.current.destination);
+
+      oscillator.start();
+      shrutiOscillatorRef.current = oscillator;
+      shrutiGainRef.current = gainNode;
+
+      setState(prev => ({ ...prev, shrutiPlaying: true }));
+    }
+  };
+
+  const handleShrutiPitchChange = (pitch: string) => {
+    const wasPlaying = state.shrutiPlaying;
+    
+    // Stop current shruti if playing
+    if (wasPlaying && shrutiOscillatorRef.current) {
+      shrutiOscillatorRef.current.stop();
+      shrutiOscillatorRef.current = null;
+    }
+
+    setState(prev => ({ ...prev, shrutiPitch: pitch, shrutiPlaying: false }));
+
+    // Restart with new pitch if it was playing
+    if (wasPlaying) {
+      setTimeout(() => {
+        setState(prev => ({ ...prev, shrutiPlaying: false }));
+        setTimeout(toggleShruti, 100);
+      }, 50);
+    }
+  };
+
   const getBeatStyle = (beatIndex: number) => {
     const isActive = beatIndex === state.currentBeat && state.isPlaying;
     const isSamam = beatIndex === 0;
@@ -248,7 +350,7 @@ export const CarnaticMetronome = () => {
 
           {/* Custom Selection */}
           {state.selectionMode === 'jaathi-talam' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-4">
                 <label className="text-lg font-semibold">Jaathi</label>
                 <Select value={state.selectedJaathi} onValueChange={handleJaathiChange}>
@@ -274,6 +376,21 @@ export const CarnaticMetronome = () => {
                     {TRADITIONAL_TALAMS.map((talam) => (
                       <SelectItem key={talam} value={talam}>
                         {talam}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-4">
+                <label className="text-lg font-semibold">Nadai</label>
+                <Select value={state.selectedNadai} onValueChange={handleNadaiChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NADAIS.map((nadai) => (
+                      <SelectItem key={nadai.name} value={nadai.name}>
+                        {nadai.name} ({nadai.subdivisions})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -306,6 +423,34 @@ export const CarnaticMetronome = () => {
                 <div className="w-3 h-3 bg-primary rounded-full"></div>
                 Emphasis
               </span>
+            </div>
+          </div>
+
+          {/* Shruti Controls */}
+          <div className="space-y-4 p-6 bg-muted/30 rounded-lg">
+            <label className="text-lg font-semibold">Shruti (Drone)</label>
+            <div className="flex gap-4 items-center">
+              <div className="flex-1">
+                <Select value={state.shrutiPitch} onValueChange={handleShrutiPitchChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Pitch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHRUTI_NOTES.map((note) => (
+                      <SelectItem key={note.name} value={note.name}>
+                        {note.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                onClick={toggleShruti}
+                variant={state.shrutiPlaying ? 'default' : 'outline'}
+                className="px-8"
+              >
+                {state.shrutiPlaying ? 'Stop Shruti' : 'Start Shruti'}
+              </Button>
             </div>
           </div>
 
