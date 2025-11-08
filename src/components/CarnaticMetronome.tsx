@@ -58,16 +58,16 @@ export const CarnaticMetronome = () => {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const shrutiOscillatorRef = useRef<OscillatorNode | null>(null);
+  const shrutiOscillatorsRef = useRef<OscillatorNode[]>([]);
   const shrutiGainRef = useRef<GainNode | null>(null);
 
   // Initialize audio context
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     return () => {
-      if (shrutiOscillatorRef.current) {
-        shrutiOscillatorRef.current.stop();
-      }
+      shrutiOscillatorsRef.current.forEach(osc => {
+        try { osc.stop(); } catch (e) {}
+      });
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
@@ -206,38 +206,85 @@ export const CarnaticMetronome = () => {
     if (!audioContextRef.current) return;
 
     if (state.shrutiPlaying) {
-      // Stop shruti
-      if (shrutiOscillatorRef.current) {
-        shrutiGainRef.current?.gain.exponentialRampToValueAtTime(
-          0.01,
-          audioContextRef.current.currentTime + 0.5
+      // Stop shruti with fade out
+      if (shrutiGainRef.current) {
+        shrutiGainRef.current.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioContextRef.current.currentTime + 1.0
         );
-        setTimeout(() => {
-          shrutiOscillatorRef.current?.stop();
-          shrutiOscillatorRef.current = null;
-        }, 500);
       }
+      setTimeout(() => {
+        shrutiOscillatorsRef.current.forEach(osc => {
+          try { osc.stop(); } catch (e) {}
+        });
+        shrutiOscillatorsRef.current = [];
+      }, 1000);
       setState(prev => ({ ...prev, shrutiPlaying: false }));
     } else {
-      // Start shruti
+      // Start tanpura-like shruti with harmonics
       const selectedNote = SHRUTI_NOTES.find(n => n.name === state.shrutiPitch);
       if (!selectedNote) return;
 
-      const oscillator = audioContextRef.current.createOscillator();
-      const gainNode = audioContextRef.current.createGain();
+      const ctx = audioContextRef.current;
+      const masterGain = ctx.createGain();
+      const oscillators: OscillatorNode[] = [];
 
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(selectedNote.frequency, audioContextRef.current.currentTime);
+      // Tanpura harmonic series with relative amplitudes
+      const harmonics = [
+        { ratio: 1, amp: 0.4, detune: 0 },      // Fundamental
+        { ratio: 2, amp: 0.25, detune: -2 },    // Octave (slightly flat)
+        { ratio: 3, amp: 0.15, detune: 1 },     // Perfect fifth + octave
+        { ratio: 4, amp: 0.12, detune: -1 },    // Two octaves
+        { ratio: 5, amp: 0.08, detune: 2 },     // Major third + two octaves
+        { ratio: 0.5, amp: 0.2, detune: 0 },    // Sub-octave for depth
+      ];
+
+      harmonics.forEach(({ ratio, amp, detune }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(
+          selectedNote.frequency * ratio,
+          ctx.currentTime
+        );
+        osc.detune.setValueAtTime(detune, ctx.currentTime);
+        
+        gain.gain.setValueAtTime(amp, ctx.currentTime);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        
+        osc.start();
+        oscillators.push(osc);
+      });
+
+      // Add subtle chorus effect with slightly detuned copies
+      [0.5, -0.5].forEach(detuneAmount => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(selectedNote.frequency, ctx.currentTime);
+        osc.detune.setValueAtTime(detuneAmount, ctx.currentTime);
+        
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        
+        osc.connect(gain);
+        gain.connect(masterGain);
+        
+        osc.start();
+        oscillators.push(osc);
+      });
+
+      // Master gain with fade in
+      masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
+      masterGain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 2.0);
       
-      gainNode.gain.setValueAtTime(0.01, audioContextRef.current.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.15, audioContextRef.current.currentTime + 0.5);
+      masterGain.connect(ctx.destination);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
-
-      oscillator.start();
-      shrutiOscillatorRef.current = oscillator;
-      shrutiGainRef.current = gainNode;
+      shrutiOscillatorsRef.current = oscillators;
+      shrutiGainRef.current = masterGain;
 
       setState(prev => ({ ...prev, shrutiPlaying: true }));
     }
@@ -247,9 +294,11 @@ export const CarnaticMetronome = () => {
     const wasPlaying = state.shrutiPlaying;
     
     // Stop current shruti if playing
-    if (wasPlaying && shrutiOscillatorRef.current) {
-      shrutiOscillatorRef.current.stop();
-      shrutiOscillatorRef.current = null;
+    if (wasPlaying) {
+      shrutiOscillatorsRef.current.forEach(osc => {
+        try { osc.stop(); } catch (e) {}
+      });
+      shrutiOscillatorsRef.current = [];
     }
 
     setState(prev => ({ ...prev, shrutiPitch: pitch, shrutiPlaying: false }));
@@ -257,9 +306,8 @@ export const CarnaticMetronome = () => {
     // Restart with new pitch if it was playing
     if (wasPlaying) {
       setTimeout(() => {
-        setState(prev => ({ ...prev, shrutiPlaying: false }));
-        setTimeout(toggleShruti, 100);
-      }, 50);
+        toggleShruti();
+      }, 100);
     }
   };
 
