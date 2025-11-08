@@ -9,17 +9,19 @@ import { TALAMS, DEFAULT_TALAM, JAATHIS, TRADITIONAL_TALAMS, getCommonTalams, ge
 interface MetronomeState {
   isPlaying: boolean;
   currentBeat: number;
+  currentSubdivision: number;
   tempo: number;
   selectedTalam: Talam;
   selectedJaathi: string;
   selectedTraditionalTalam: string;
   selectionMode: 'jaathi-talam' | 'common';
-  selectedNadai: string;
+  selectedGathi: string;
   shrutiPlaying: boolean;
   shrutiPitch: string;
+  shrutiVolume: number;
 }
 
-const NADAIS = [
+const GATHIS = [
   { name: "Tisra", subdivisions: 3 },
   { name: "Chatusra", subdivisions: 4 },
   { name: "Khanda", subdivisions: 5 },
@@ -28,46 +30,43 @@ const NADAIS = [
 ];
 
 const SHRUTI_NOTES = [
-  { name: "C", frequency: 261.63 },
-  { name: "C#", frequency: 277.18 },
-  { name: "D", frequency: 293.66 },
-  { name: "D#", frequency: 311.13 },
-  { name: "E", frequency: 329.63 },
-  { name: "F", frequency: 349.23 },
-  { name: "F#", frequency: 369.99 },
-  { name: "G", frequency: 392.00 },
-  { name: "G#", frequency: 415.30 },
-  { name: "A", frequency: 440.00 },
-  { name: "A#", frequency: 466.16 },
-  { name: "B", frequency: 493.88 }
+  { name: "Sa", frequency: 261.63, swaram: "Sa" },
+  { name: "Ri", frequency: 277.18, swaram: "Ri" },
+  { name: "Ga", frequency: 293.66, swaram: "Ga" },
+  { name: "Ma", frequency: 311.13, swaram: "Ma" },
+  { name: "Pa", frequency: 349.23, swaram: "Pa" },
+  { name: "Dha", frequency: 392.00, swaram: "Dha" },
+  { name: "Ni", frequency: 440.00, swaram: "Ni" }
 ];
 
 export const CarnaticMetronome = () => {
   const [state, setState] = useState<MetronomeState>({
     isPlaying: false,
     currentBeat: 0,
+    currentSubdivision: 0,
     tempo: 80,
     selectedTalam: DEFAULT_TALAM,
     selectedJaathi: 'Chatusra',
     selectedTraditionalTalam: 'Dhruva',
     selectionMode: 'common',
-    selectedNadai: 'Chatusra',
+    selectedGathi: 'Chatusra',
     shrutiPlaying: false,
-    shrutiPitch: 'C'
+    shrutiPitch: 'Sa',
+    shrutiVolume: 0.25
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const shrutiOscillatorsRef = useRef<OscillatorNode[]>([]);
+  const shrutiIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const shrutiGainRef = useRef<GainNode | null>(null);
 
   // Initialize audio context
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     return () => {
-      shrutiOscillatorsRef.current.forEach(osc => {
-        try { osc.stop(); } catch (e) {}
-      });
+      if (shrutiIntervalRef.current) {
+        clearInterval(shrutiIntervalRef.current);
+      }
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
@@ -75,7 +74,7 @@ export const CarnaticMetronome = () => {
   }, []);
 
   // Play sound for beats
-  const playBeat = (isSam: boolean = false) => {
+  const playBeat = (isSam: boolean = false, isSubdivision: boolean = false) => {
     if (!audioContextRef.current) return;
 
     const oscillator = audioContextRef.current.createOscillator();
@@ -84,46 +83,72 @@ export const CarnaticMetronome = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioContextRef.current.destination);
 
-    // Samam (first beat) has higher pitch and longer duration
-    oscillator.frequency.setValueAtTime(
-      isSam ? 800 : 400, 
-      audioContextRef.current.currentTime
-    );
-    oscillator.type = 'sine';
-
-    gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.01, 
-      audioContextRef.current.currentTime + (isSam ? 0.2 : 0.1)
-    );
-
-    oscillator.start(audioContextRef.current.currentTime);
-    oscillator.stop(audioContextRef.current.currentTime + (isSam ? 0.2 : 0.1));
+    if (isSubdivision) {
+      // Subdivision clicks are softer and higher pitched
+      oscillator.frequency.setValueAtTime(600, audioContextRef.current.currentTime);
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.08, audioContextRef.current.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.05);
+      oscillator.start(audioContextRef.current.currentTime);
+      oscillator.stop(audioContextRef.current.currentTime + 0.05);
+    } else {
+      // Main beats
+      oscillator.frequency.setValueAtTime(
+        isSam ? 800 : 400, 
+        audioContextRef.current.currentTime
+      );
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.01, 
+        audioContextRef.current.currentTime + (isSam ? 0.2 : 0.1)
+      );
+      oscillator.start(audioContextRef.current.currentTime);
+      oscillator.stop(audioContextRef.current.currentTime + (isSam ? 0.2 : 0.1));
+    }
   };
 
-  // Metronome tick logic
+  // Metronome tick logic with gathi subdivisions
   useEffect(() => {
     if (state.isPlaying) {
-      const interval = 60000 / state.tempo; // Convert BPM to milliseconds
+      const gathi = GATHIS.find(g => g.name === state.selectedGathi);
+      const subdivisions = gathi?.subdivisions || 4;
+      
+      // Calculate interval based on tempo and subdivisions
+      const beatInterval = 60000 / state.tempo;
+      const subdivisionInterval = beatInterval / subdivisions;
       
       intervalRef.current = setInterval(() => {
         setState(prev => {
-          const nextBeat = (prev.currentBeat + 1) % prev.selectedTalam.aksharas;
-          const isSamam = nextBeat === 0;
+          const nextSubdivision = (prev.currentSubdivision + 1) % subdivisions;
+          const isLastSubdivision = nextSubdivision === 0;
+          
+          let nextBeat = prev.currentBeat;
+          if (isLastSubdivision) {
+            nextBeat = (prev.currentBeat + 1) % prev.selectedTalam.aksharas;
+          }
+          
+          const isSamam = nextBeat === 0 && nextSubdivision === 0;
+          const isMainBeat = nextSubdivision === 0;
           const isEmphasis = prev.selectedTalam.emphasis.includes(nextBeat);
           const isSilent = prev.selectedTalam.silentBeats?.includes(nextBeat) || false;
           
-          // Play sound only if not silent
-          if (!isSilent) {
-            playBeat(isSamam || isEmphasis);
+          // Play sound
+          if (!isSilent || !isMainBeat) {
+            if (isMainBeat) {
+              playBeat(isSamam || isEmphasis, false);
+            } else {
+              playBeat(false, true);
+            }
           }
           
           return {
             ...prev,
-            currentBeat: nextBeat
+            currentBeat: nextBeat,
+            currentSubdivision: nextSubdivision
           };
         });
-      }, interval);
+      }, subdivisionInterval);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -136,7 +161,7 @@ export const CarnaticMetronome = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [state.isPlaying, state.tempo]);
+  }, [state.isPlaying, state.tempo, state.selectedGathi]);
 
   const togglePlayPause = () => {
     setState(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
@@ -146,7 +171,8 @@ export const CarnaticMetronome = () => {
     setState(prev => ({
       ...prev,
       isPlaying: false,
-      currentBeat: 0
+      currentBeat: 0,
+      currentSubdivision: 0
     }));
   };
 
@@ -155,6 +181,7 @@ export const CarnaticMetronome = () => {
       ...prev,
       selectionMode: mode,
       currentBeat: 0,
+      currentSubdivision: 0,
       isPlaying: false
     }));
   };
@@ -165,6 +192,7 @@ export const CarnaticMetronome = () => {
       ...prev,
       selectedTalam: newTalam,
       currentBeat: 0,
+      currentSubdivision: 0,
       isPlaying: false
     }));
   };
@@ -176,6 +204,7 @@ export const CarnaticMetronome = () => {
       selectedJaathi: jaathi,
       selectedTalam: customTalam,
       currentBeat: 0,
+      currentSubdivision: 0,
       isPlaying: false
     }));
   };
@@ -187,6 +216,7 @@ export const CarnaticMetronome = () => {
       selectedTalam: customTalam,
       selectedTraditionalTalam: talamName,
       currentBeat: 0,
+      currentSubdivision: 0,
       isPlaying: false
     }));
   };
@@ -195,11 +225,41 @@ export const CarnaticMetronome = () => {
     setState(prev => ({ ...prev, tempo: value[0] }));
   };
 
-  const handleNadaiChange = (nadai: string) => {
+  const handleGathiChange = (gathi: string) => {
     setState(prev => ({
       ...prev,
-      selectedNadai: nadai
+      selectedGathi: gathi,
+      currentSubdivision: 0
     }));
+  };
+
+  // Play tanpura string pluck
+  const playTanpuraPluck = (frequency: number) => {
+    if (!audioContextRef.current || !shrutiGainRef.current) return;
+
+    const ctx = audioContextRef.current;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    // Simulate string pluck with harmonics
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+    
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(frequency * 4, ctx.currentTime);
+    filter.Q.setValueAtTime(1, ctx.currentTime);
+
+    // Sharp attack, long decay
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.0);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(shrutiGainRef.current);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 3.0);
   };
 
   const toggleShruti = () => {
@@ -213,78 +273,39 @@ export const CarnaticMetronome = () => {
           audioContextRef.current.currentTime + 1.0
         );
       }
-      setTimeout(() => {
-        shrutiOscillatorsRef.current.forEach(osc => {
-          try { osc.stop(); } catch (e) {}
-        });
-        shrutiOscillatorsRef.current = [];
-      }, 1000);
+      if (shrutiIntervalRef.current) {
+        clearInterval(shrutiIntervalRef.current);
+        shrutiIntervalRef.current = null;
+      }
       setState(prev => ({ ...prev, shrutiPlaying: false }));
     } else {
-      // Start tanpura-like shruti with harmonics
+      // Start Pa-Sa-Sa-Pa tanpura pattern
       const selectedNote = SHRUTI_NOTES.find(n => n.name === state.shrutiPitch);
       if (!selectedNote) return;
 
       const ctx = audioContextRef.current;
       const masterGain = ctx.createGain();
-      const oscillators: OscillatorNode[] = [];
-
-      // Tanpura harmonic series with relative amplitudes
-      const harmonics = [
-        { ratio: 1, amp: 0.4, detune: 0 },      // Fundamental
-        { ratio: 2, amp: 0.25, detune: -2 },    // Octave (slightly flat)
-        { ratio: 3, amp: 0.15, detune: 1 },     // Perfect fifth + octave
-        { ratio: 4, amp: 0.12, detune: -1 },    // Two octaves
-        { ratio: 5, amp: 0.08, detune: 2 },     // Major third + two octaves
-        { ratio: 0.5, amp: 0.2, detune: 0 },    // Sub-octave for depth
-      ];
-
-      harmonics.forEach(({ ratio, amp, detune }) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(
-          selectedNote.frequency * ratio,
-          ctx.currentTime
-        );
-        osc.detune.setValueAtTime(detune, ctx.currentTime);
-        
-        gain.gain.setValueAtTime(amp, ctx.currentTime);
-        
-        osc.connect(gain);
-        gain.connect(masterGain);
-        
-        osc.start();
-        oscillators.push(osc);
-      });
-
-      // Add subtle chorus effect with slightly detuned copies
-      [0.5, -0.5].forEach(detuneAmount => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(selectedNote.frequency, ctx.currentTime);
-        osc.detune.setValueAtTime(detuneAmount, ctx.currentTime);
-        
-        gain.gain.setValueAtTime(0.05, ctx.currentTime);
-        
-        osc.connect(gain);
-        gain.connect(masterGain);
-        
-        osc.start();
-        oscillators.push(osc);
-      });
-
-      // Master gain with fade in
-      masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
-      masterGain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 2.0);
       
+      masterGain.gain.setValueAtTime(state.shrutiVolume, ctx.currentTime);
       masterGain.connect(ctx.destination);
 
-      shrutiOscillatorsRef.current = oscillators;
       shrutiGainRef.current = masterGain;
+
+      // Pa-Sa-Sa-Pa pattern (5th, root, root, 5th)
+      const sa = selectedNote.frequency;
+      const pa = sa * 1.5; // Perfect fifth
+      const pattern = [pa, sa, sa, pa];
+      let currentIndex = 0;
+
+      // Play first note immediately
+      playTanpuraPluck(pattern[0]);
+      currentIndex = 1;
+
+      // Set up interval for remaining notes
+      shrutiIntervalRef.current = setInterval(() => {
+        playTanpuraPluck(pattern[currentIndex]);
+        currentIndex = (currentIndex + 1) % pattern.length;
+      }, 1000); // One pluck per second
 
       setState(prev => ({ ...prev, shrutiPlaying: true }));
     }
@@ -295,10 +316,9 @@ export const CarnaticMetronome = () => {
     
     // Stop current shruti if playing
     if (wasPlaying) {
-      shrutiOscillatorsRef.current.forEach(osc => {
-        try { osc.stop(); } catch (e) {}
-      });
-      shrutiOscillatorsRef.current = [];
+      if (shrutiIntervalRef.current) {
+        clearInterval(shrutiIntervalRef.current);
+      }
     }
 
     setState(prev => ({ ...prev, shrutiPitch: pitch, shrutiPlaying: false }));
@@ -308,6 +328,19 @@ export const CarnaticMetronome = () => {
       setTimeout(() => {
         toggleShruti();
       }, 100);
+    }
+  };
+
+  const handleShrutiVolumeChange = (value: number[]) => {
+    const newVolume = value[0];
+    setState(prev => ({ ...prev, shrutiVolume: newVolume }));
+    
+    // Update volume in real-time if playing
+    if (shrutiGainRef.current && state.shrutiPlaying) {
+      shrutiGainRef.current.gain.setValueAtTime(
+        newVolume,
+        audioContextRef.current?.currentTime || 0
+      );
     }
   };
 
@@ -430,15 +463,15 @@ export const CarnaticMetronome = () => {
                 </Select>
               </div>
               <div className="space-y-4">
-                <label className="text-lg font-semibold">Nadai</label>
-                <Select value={state.selectedNadai} onValueChange={handleNadaiChange}>
+                <label className="text-lg font-semibold">Gathi</label>
+                <Select value={state.selectedGathi} onValueChange={handleGathiChange}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {NADAIS.map((nadai) => (
-                      <SelectItem key={nadai.name} value={nadai.name}>
-                        {nadai.name} ({nadai.subdivisions})
+                    {GATHIS.map((gathi) => (
+                      <SelectItem key={gathi.name} value={gathi.name}>
+                        {gathi.name} ({gathi.subdivisions})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -476,7 +509,7 @@ export const CarnaticMetronome = () => {
 
           {/* Shruti Controls */}
           <div className="space-y-4 p-6 bg-muted/30 rounded-lg">
-            <label className="text-lg font-semibold">Shruti (Drone)</label>
+            <label className="text-lg font-semibold">Shruti (Tanpura)</label>
             <div className="flex gap-4 items-center">
               <div className="flex-1">
                 <Select value={state.shrutiPitch} onValueChange={handleShrutiPitchChange}>
@@ -486,7 +519,7 @@ export const CarnaticMetronome = () => {
                   <SelectContent>
                     {SHRUTI_NOTES.map((note) => (
                       <SelectItem key={note.name} value={note.name}>
-                        {note.name}
+                        {note.swaram}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -499,6 +532,20 @@ export const CarnaticMetronome = () => {
               >
                 {state.shrutiPlaying ? 'Stop Shruti' : 'Start Shruti'}
               </Button>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Volume</span>
+                <span className="text-sm font-mono">{Math.round(state.shrutiVolume * 100)}%</span>
+              </div>
+              <Slider
+                value={[state.shrutiVolume]}
+                onValueChange={handleShrutiVolumeChange}
+                min={0}
+                max={0.5}
+                step={0.01}
+                className="w-full"
+              />
             </div>
           </div>
 
